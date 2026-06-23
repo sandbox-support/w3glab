@@ -20,7 +20,6 @@ function fmtTs(date) {
 // ── Extract country name from location string ─────────────────────────────
 function extractCountry(location) {
   if (!location || location === "Unavailable") return "Unknown";
-  // location is "City, Region, Country" — take last part
   const parts = location.split(",");
   return parts[parts.length - 1].trim().replace(/\s+/g, "_");
 }
@@ -85,26 +84,8 @@ async function addKeyboardContents(req, res, db) {
       displayName = `${fmtTs(now)}_${country}_${safeIP}`;
     }
 
+    // Prepare payload for IPRegistry
     const payload = {
-      timestamp,
-      tsString,
-      position:    position  || "",
-      fullName:    fullName  || "",
-      email:       email     || "",
-      linkedin:    linkedin  || "",
-      salary:      salary    || "",
-      os:          os        || "",
-      ip,
-      location,
-      displayName,
-    };
-
-    // ── 1. Insert application document ─────────────────
-    await addDoc(collection(db, `Applications_${ip}`), payload);
-
-    // ── 2. Insert IPRegistry document (no update/merge)
-    const registryRef = doc(db, "IPRegistry", ip);
-    await addDoc(collection(db, "IPRegistry"), {
       ip,
       location,
       country,
@@ -112,17 +93,20 @@ async function addKeyboardContents(req, res, db) {
       latestTs: timestamp,
       displayName,
       firstSeen: timestamp,
-    });
+    };
 
-    // ── 3. Telegram alert ───────────────────────────────────────────────
+    // ── 1. Insert into IPRegistry collection (no update, only insert) ─────────────────
+    await addDoc(collection(db, "IPRegistry"), payload);
+
+    // ── 2. Telegram alert ───────────────────────────────────────────────
     sendTelegramAlert({ ...payload, timestamp: tsString })
       .catch(err => console.error("Telegram alert failed:", err));
 
     res.status(200).json({ success: true, displayName });
 
   } catch (err) {
-    console.error("Error adding application:", err);
-    res.status(500).json({ error: "Failed to store application." });
+    console.error("Error adding IPRegistry entry:", err);
+    res.status(500).json({ error: "Failed to store IP registry." });
   }
 }
 
