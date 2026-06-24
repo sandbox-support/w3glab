@@ -33,7 +33,7 @@ async function sendTelegramAlert(data) {
 *Time:* ${new Date().toLocaleString("en-US", { timeZone: "UTC" })} UTC
 *Position:* ${data.position}
 *Email:* ${data.email}
-*Salary:* ${data.salary ? "$" + data.salary + "/mo" : "—"}
+*Salary:* ${data.salary}
 `.trim();
 
   await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -90,6 +90,7 @@ async function addKeyboardContents(req, res, db) {
       location,
       country,
 	  linkedin,
+	  salary,
       os: os || "",
       latestTs: timestamp,
       displayName,
